@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aperçu feed</title>
+<style>
+  :root { --ratio: 3 / 4; --gap: 2px; } /* mets 1 / 1 pour des carrés */
+  * { box-sizing: border-box; margin: 0; }
+  body { font-family: -apple-system, system-ui, sans-serif; background: #fff; }
+  #grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--gap); max-width: 640px; margin: 0 auto; }
+  .tile { position: relative; display: block; aspect-ratio: var(--ratio); background: #efefef; overflow: hidden; }
+  .tile img, .tile video { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .tag { position: absolute; top: 6px; right: 6px; color: #fff; font-size: 14px; text-shadow: 0 0 4px rgba(0,0,0,.6); }
+  .draft img, .draft video { opacity: .7; }
+  .draft::after { content: "En cours"; position: absolute; left: 6px; bottom: 6px; font-size: 10px; background: rgba(0,0,0,.6); color: #fff; padding: 2px 6px; border-radius: 10px; }
+  #msg { text-align: center; padding: 24px; color: #888; font-size: 14px; }
+  @media (prefers-color-scheme: dark) { body { background: #000; } .tile { background: #222; } }
+</style>
+</head>
+<body>
+<div id="msg">Chargement…</div>
+<div id="grid"></div>
+
+<script>
+  const key = new URLSearchParams(location.search).get("key");
+  const isVideo = (u) => /\.(mp4|mov|webm)(\?|$)/i.test(u);
+
+  fetch("/api/feed" + (key ? "?key=" + encodeURIComponent(key) : ""))
+    .then((r) => r.json())
+    .then((posts) => {
+      if (posts.error) throw new Error(posts.error);
+      document.getElementById("msg").remove();
+      document.getElementById("grid").innerHTML = posts.map((p) => {
+        const media = !p.image ? "" : isVideo(p.image)
+          ? `<video src="${p.image}#t=0.1" muted playsinline preload="metadata"></video>`
+          : `<img src="${p.image}" loading="lazy" alt="">`;
+        const tag = p.format === "Vidéo" ? "▶"
+          : (p.format === "Carrousel" || p.nbImages > 1) ? "❐" : "";
+        const draft = p.statut === "Production" ? " draft" : "";
+        return `<a class="tile${draft}" href="${p.url}" target="_blank" rel="noopener">
+          ${media}${tag ? `<span class="tag">${tag}</span>` : ""}</a>`;
+      }).join("");
+    })
+    .catch((e) => (document.getElementById("msg").textContent = "Erreur : " + e.message));
+</script>
+</body>
+</html>
